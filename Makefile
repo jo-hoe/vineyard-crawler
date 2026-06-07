@@ -26,12 +26,13 @@ endif
 PIP    := $(VENV_BIN)/pip
 PY     := $(VENV_BIN)/$(PY_EXE)
 
-OUTPUT ?= vineyards.csv
+OUTPUT     ?= vineyards.csv
+MAP_OUTPUT ?= vineyards_map.html
 
-.PHONY: init update test start docs clean help
+.PHONY: init update test start docs map clean help
 
 help:
-	@$(PYTHON) -c "print('targets: init, update, test, start, docs, clean')"
+	@$(PYTHON) -c "print('targets: init, update, test, start, docs, map, clean')"
 
 init:
 	$(PYTHON) -m venv $(VENV)
@@ -44,11 +45,19 @@ update:
 test:
 	$(PY) -m pytest
 
-start:
+start: $(OUTPUT)
+
+# File-target form so `make map` rebuilds the CSV on demand if it's missing.
+$(OUTPUT): main.py
 	$(PY) main.py --output $(OUTPUT)
 
 docs:
 	$(PY) generate_cli_docs.py
+
+map: $(MAP_OUTPUT)
+
+$(MAP_OUTPUT): $(OUTPUT) render_map.py
+	$(PY) render_map.py --input $(OUTPUT) --output $(MAP_OUTPUT)
 
 # Portable recursive remove: shells out to Python so we don't depend on
 # `rm` (POSIX) or `rmdir /s /q` (cmd) being available.

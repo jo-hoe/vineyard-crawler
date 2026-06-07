@@ -31,6 +31,7 @@ For each vineyard the crawler emits:
 make init      # create venv + install all dependencies (from pyproject.toml)
 make test      # run the test suite
 make start     # crawl Germany and write vineyards.csv
+make map       # render an interactive HTML map (auto-runs make start if needed)
 make docs      # regenerate CLI.md from the live argument parser
 ```
 
@@ -58,6 +59,20 @@ The crawler honours the [Overpass API usage policy](https://dev.overpass-api.de/
 - The vineyard and waterway queries run **in parallel**, each occupying one of the two concurrent slots the API grants per IP.
 - `out geom` returns geometry inline — no second-pass node lookups.
 - HTTP 429 (slot queue full) and 504 (server overload) are retried with exponential backoff (5 s → 10 s → 20 s).
+
+## Interactive map (Bokeh)
+
+```bash
+make map      # produces vineyards_map.html
+```
+
+Each vineyard is plotted as a coloured circle on a tile map. Open the HTML
+file in any browser — no server needed. Hover for name / river / distance,
+pan and wheel-zoom to navigate, drag the four sliders below the map to
+re-bucket distances on the fly, and use **Reset thresholds** to restore the
+defaults (100 / 200 / 300 / 500 m).
+
+If `vineyards.csv` doesn't exist yet, `make map` runs `make start` first.
 
 ## Visualising with Google My Maps
 

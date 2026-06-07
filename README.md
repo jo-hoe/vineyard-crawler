@@ -62,6 +62,12 @@ The crawler honours the [Overpass API usage policy](https://dev.overpass-api.de/
 
 ## Interactive map (Bokeh)
 
+A pre-rendered map is published automatically to GitHub Pages:
+
+**🌐 [jo-hoe.github.io/vineyard-crawler](https://jo-hoe.github.io/vineyard-crawler/)**
+
+To build it locally:
+
 ```bash
 make map      # produces vineyards_map.html
 ```
@@ -73,6 +79,10 @@ re-bucket distances on the fly, and use **Reset thresholds** to restore the
 defaults (100 / 200 / 300 / 500 m).
 
 If `vineyards.csv` doesn't exist yet, `make map` runs `make start` first.
+
+The published version is refreshed by the `publish-map` GitHub Actions
+workflow whenever the crawler or renderer logic changes on `main`, or
+on demand via the **Actions → publish-map → Run workflow** button.
 
 ## Visualising with Google My Maps
 

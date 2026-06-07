@@ -36,10 +36,10 @@ help:
 init:
 	$(PYTHON) -m venv $(VENV)
 	$(PY) -m pip install --upgrade pip
-	$(PY) -m pip install -r requirements-dev.txt
+	$(PY) -m pip install -e ".[dev]"
 
 update:
-	$(PY) -m pip install --upgrade -r requirements-dev.txt
+	$(PY) -m pip install --upgrade -e ".[dev]"
 
 test:
 	$(PY) -m pytest

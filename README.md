@@ -28,7 +28,7 @@ For each vineyard the crawler emits:
 ## Quick start
 
 ```bash
-make init      # create venv + install dev dependencies
+make init      # create venv + install all dependencies (from pyproject.toml)
 make test      # run the test suite
 make start     # crawl Germany and write vineyards.csv
 make docs      # regenerate CLI.md from the live argument parser

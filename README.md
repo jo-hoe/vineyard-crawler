@@ -5,6 +5,8 @@ Scrapes named German vineyard sites (Weinlagen / Einzellagen) from OpenStreetMap
 
 🌐 **Live interactive map:** [jo-hoe.github.io/vineyard-crawler](https://jo-hoe.github.io/vineyard-crawler/)
 
+[![Vineyards of Germany — coloured by distance to nearest river](example.png)](https://jo-hoe.github.io/vineyard-crawler/)
+
 For each vineyard the crawler emits:
 
 | Field             | Description                                                              |

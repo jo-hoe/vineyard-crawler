@@ -1,0 +1,76 @@
+name: publish-map
+
+# Build the interactive map and publish it to the gh-pages branch.
+#
+# Triggers:
+#   - manual (workflow_dispatch)
+#   - push to main, but ONLY when crawler/renderer logic changes
+#     (README/CI/test edits do NOT republish)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "main.py"
+      - "render_map.py"
+      - "src/**"
+      - "pyproject.toml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-map
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+
+      - name: Crawl
+        run: python main.py --output vineyards.csv
+
+      - name: Render map
+        run: python render_map.py --input vineyards.csv --output index.html
+
+      - name: Publish to gh-pages
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Stage the new map output and a marker so GitHub Pages serves raw HTML.
+          mkdir -p public
+          mv index.html public/
+          touch public/.nojekyll
+
+          # Commit + push to gh-pages without affecting the working tree of main.
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin gh-pages
+          git worktree add ../gh-pages-out gh-pages
+          rm -rf ../gh-pages-out/*
+          # .nojekyll lives at the repo root and must be preserved.
+          cp -r public/. ../gh-pages-out/
+          cd ../gh-pages-out
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to publish."
+          else
+            git commit -m "chore(gh-pages): publish map ($(date -u +%Y-%m-%dT%H:%M:%SZ))"
+            git push origin gh-pages
+          fi

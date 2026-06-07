@@ -65,9 +65,11 @@ The crawler honours the [Overpass API usage policy](https://dev.overpass-api.de/
 plot each vineyard as a pin on an interactive map.
 
 1. Run the crawler to produce `vineyards.csv`:
+
    ```bash
    make start
    ```
+
 2. Open [mymaps.google.com](https://mymaps.google.com) and click **Create a new map**.
 3. Click **Add layer**, then **Import** in the new layer's panel.
 4. Upload `vineyards.csv`.

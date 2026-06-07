@@ -28,10 +28,10 @@ PY     := $(VENV_BIN)/$(PY_EXE)
 
 OUTPUT ?= vineyards.csv
 
-.PHONY: init update test start clean help
+.PHONY: init update test start docs clean help
 
 help:
-	@$(PYTHON) -c "print('targets: init, update, test, start, clean')"
+	@$(PYTHON) -c "print('targets: init, update, test, start, docs, clean')"
 
 init:
 	$(PYTHON) -m venv $(VENV)
@@ -46,6 +46,9 @@ test:
 
 start:
 	$(PY) main.py --output $(OUTPUT)
+
+docs:
+	$(PY) generate_cli_docs.py
 
 # Portable recursive remove: shells out to Python so we don't depend on
 # `rm` (POSIX) or `rmdir /s /q` (cmd) being available.

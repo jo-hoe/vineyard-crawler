@@ -2,25 +2,20 @@
 from __future__ import annotations
 
 import csv
+import dataclasses
 from pathlib import Path
 from typing import Iterable
 
 from .vineyard import Vineyard
 
-CSV_FIELDS: tuple[str, ...] = (
-    "osm_type",
-    "osm_id",
-    "name",
-    "latitude",
-    "longitude",
-    "area_ha",
-    "grape_variety",
-    "wikipedia",
-    "wikidata",
-    "operator",
-    "website",
-    "locality",
-    "classification",
+# Field order for the output CSV.  Derived from the dataclass but excludes
+# internal-only fields that have no meaning outside the process.
+_EXCLUDED_FIELDS: frozenset[str] = frozenset({"boundary_points"})
+
+CSV_FIELDS: tuple[str, ...] = tuple(
+    f.name
+    for f in dataclasses.fields(Vineyard)
+    if f.name not in _EXCLUDED_FIELDS
 )
 
 
@@ -39,6 +34,8 @@ def _row(v: Vineyard) -> dict[str, str]:
         "website": v.website or "",
         "locality": v.locality or "",
         "classification": v.classification or "",
+        "nearest_river": v.nearest_river or "",
+        "river_distance_m": str(v.river_distance_m) if v.river_distance_m is not None else "",
     }
 
 

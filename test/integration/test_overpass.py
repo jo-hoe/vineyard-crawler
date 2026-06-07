@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from typing import Any
+from unittest.mock import call
 
 import pytest
 
@@ -53,7 +54,6 @@ def test_fetch_posts_query_with_user_agent(mocker: Any) -> None:
     assert "data" in kwargs["data"]
     assert "vineyard-crawler/" in kwargs["headers"]["User-Agent"]
     assert kwargs["headers"]["Accept"] == "application/json"
-    # HTTP timeout should exceed the server-side timeout
     assert kwargs["timeout"] > client.timeout_s
 
 
@@ -64,3 +64,58 @@ def test_fetch_rejects_non_object_payload(mocker: Any) -> None:
     )
     with pytest.raises(ValueError):
         OverpassClient().fetch(GERMANY)
+
+
+def test_retries_on_429_then_succeeds(mocker: Any) -> None:
+    mocker.patch("vineyard_crawler.overpass.time.sleep")
+    post = mocker.patch(
+        "vineyard_crawler.overpass.requests.post",
+        side_effect=[
+            _FakeResponse({}, status=429),
+            _FakeResponse({"elements": []}),
+        ],
+    )
+    result = OverpassClient().fetch(GERMANY)
+    assert result == {"elements": []}
+    assert post.call_count == 2
+
+
+def test_retries_on_504_then_succeeds(mocker: Any) -> None:
+    mocker.patch("vineyard_crawler.overpass.time.sleep")
+    post = mocker.patch(
+        "vineyard_crawler.overpass.requests.post",
+        side_effect=[
+            _FakeResponse({}, status=504),
+            _FakeResponse({"elements": []}),
+        ],
+    )
+    result = OverpassClient().fetch(GERMANY)
+    assert result == {"elements": []}
+    assert post.call_count == 2
+
+
+def test_raises_after_max_retries_exhausted(mocker: Any) -> None:
+    mocker.patch("vineyard_crawler.overpass.time.sleep")
+    mocker.patch(
+        "vineyard_crawler.overpass.requests.post",
+        return_value=_FakeResponse({}, status=429),
+    )
+    with pytest.raises(RuntimeError):
+        OverpassClient().fetch(GERMANY)
+
+
+def test_backoff_delay_doubles_between_retries(mocker: Any) -> None:
+    sleep = mocker.patch("vineyard_crawler.overpass.time.sleep")
+    mocker.patch(
+        "vineyard_crawler.overpass.requests.post",
+        side_effect=[
+            _FakeResponse({}, status=429),
+            _FakeResponse({}, status=429),
+            _FakeResponse({"elements": []}),
+        ],
+    )
+    OverpassClient().fetch(GERMANY)
+    delays = [c.args[0] for c in sleep.call_args_list]
+    assert len(delays) == 2
+    assert delays[1] == pytest.approx(delays[0] * 2)
+

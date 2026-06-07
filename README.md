@@ -3,7 +3,7 @@
 Scrapes named German vineyard sites (Weinlagen / Einzellagen) from OpenStreetMap via the
 [Overpass API](https://overpass-api.de/) and exports them to CSV.
 
-![1,334 named German vineyards plotted on Google My Maps](example.png)
+🌐 **Live interactive map:** [jo-hoe.github.io/vineyard-crawler](https://jo-hoe.github.io/vineyard-crawler/)
 
 For each vineyard the crawler emits:
 
@@ -61,6 +61,10 @@ The crawler honours the [Overpass API usage policy](https://dev.overpass-api.de/
 - HTTP 429 (slot queue full) and 504 (server overload) are retried with exponential backoff (5 s → 10 s → 20 s).
 
 ## Interactive map (Bokeh)
+
+The [live version](https://jo-hoe.github.io/vineyard-crawler/) is auto-published to GitHub Pages by the `publish-map` workflow whenever the crawler or renderer logic changes on `main`, and can also be triggered on demand from **Actions → publish-map → Run workflow**.
+
+To build it locally:
 
 ```bash
 make map      # produces vineyards_map.html

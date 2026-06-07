@@ -20,6 +20,10 @@ class Vineyard:
     grape_variety: str | None
     wikipedia: str | None
     wikidata: str | None
+    operator: str | None
+    website: str | None
+    locality: str | None
+    classification: str | None
 
 
 # --- Overpass element parsing ------------------------------------------------
@@ -93,6 +97,9 @@ def from_overpass_element(element: Mapping[str, Any]) -> Vineyard | None:
     c = centroid(all_points)
     area_ha = polygon_area_ha(rings)
 
+    # Merge website + contact:website; prefer the bare key when both present.
+    website = _optional_tag(tags, "website") or _optional_tag(tags, "contact:website")
+
     return Vineyard(
         osm_type=str(osm_type),
         osm_id=int(element["id"]),
@@ -103,6 +110,10 @@ def from_overpass_element(element: Mapping[str, Any]) -> Vineyard | None:
         grape_variety=_optional_tag(tags, "grape_variety"),
         wikipedia=_optional_tag(tags, "wikipedia"),
         wikidata=_optional_tag(tags, "wikidata"),
+        operator=_optional_tag(tags, "operator"),
+        website=website,
+        locality=_optional_tag(tags, "vineyard:locality"),
+        classification=_optional_tag(tags, "vineyard:class"),
     )
 
 

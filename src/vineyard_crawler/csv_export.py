@@ -17,6 +17,10 @@ CSV_FIELDS: tuple[str, ...] = (
     "grape_variety",
     "wikipedia",
     "wikidata",
+    "operator",
+    "website",
+    "locality",
+    "classification",
 )
 
 
@@ -31,6 +35,10 @@ def _row(v: Vineyard) -> dict[str, str]:
         "grape_variety": v.grape_variety or "",
         "wikipedia": v.wikipedia or "",
         "wikidata": v.wikidata or "",
+        "operator": v.operator or "",
+        "website": v.website or "",
+        "locality": v.locality or "",
+        "classification": v.classification or "",
     }
 
 

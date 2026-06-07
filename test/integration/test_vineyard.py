@@ -125,12 +125,41 @@ def test_optional_tags_round_trip() -> None:
             extra_tags={
                 "wikipedia": "de:Goldberg (Wein)",
                 "wikidata": "Q12345",
+                "operator": "Weingut Müller",
+                "website": "https://example.com",
+                "vineyard:locality": "Nierstein",
+                "vineyard:class": "VDP.GROSSE LAGE",
             }
         )
     )
     assert v is not None
     assert v.wikipedia == "de:Goldberg (Wein)"
     assert v.wikidata == "Q12345"
+    assert v.operator == "Weingut Müller"
+    assert v.website == "https://example.com"
+    assert v.locality == "Nierstein"
+    assert v.classification == "VDP.GROSSE LAGE"
+
+
+def test_contact_website_fallback() -> None:
+    v = from_overpass_element(
+        _way_element(extra_tags={"contact:website": "https://fallback.example"})
+    )
+    assert v is not None
+    assert v.website == "https://fallback.example"
+
+
+def test_website_prefers_bare_key_over_contact_website() -> None:
+    v = from_overpass_element(
+        _way_element(
+            extra_tags={
+                "website": "https://primary.example",
+                "contact:website": "https://fallback.example",
+            }
+        )
+    )
+    assert v is not None
+    assert v.website == "https://primary.example"
 
 
 def test_blank_tag_is_treated_as_missing() -> None:

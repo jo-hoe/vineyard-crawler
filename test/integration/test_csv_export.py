@@ -19,6 +19,10 @@ def _sample(name: str = "Goldberg") -> Vineyard:
         grape_variety="Riesling",
         wikipedia=None,
         wikidata="Q12345",
+        operator="Weingut Müller",
+        website="https://example.com",
+        locality="Große Lage",
+        classification="VDP.GROSSE LAGE",
     )
 
 
@@ -33,6 +37,10 @@ def test_write_csv_round_trip(tmp_path: Path) -> None:
     assert [r["name"] for r in rows] == ["Goldberg", "Roter Hang"]
     assert rows[0]["wikipedia"] == ""  # None → empty
     assert rows[0]["wikidata"] == "Q12345"
+    assert rows[0]["operator"] == "Weingut Müller"
+    assert rows[0]["website"] == "https://example.com"
+    assert rows[0]["locality"] == "Große Lage"
+    assert rows[0]["classification"] == "VDP.GROSSE LAGE"
     assert rows[0]["latitude"].startswith("49.")
 
 

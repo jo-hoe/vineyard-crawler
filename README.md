@@ -75,7 +75,8 @@ make map      # produces vineyards_map.html
 Each vineyard is plotted as a coloured circle on a tile map. Open the HTML
 file in any browser — no server needed. Hover for name / river / distance,
 pan and wheel-zoom to navigate, drag the four sliders below the map to
-re-bucket distances on the fly, and use **Reset thresholds** to restore the
+re-bucket distances on the fly, **toggle individual buckets** with the
+checkboxes to hide them, and use **Reset thresholds** to restore the
 defaults (100 / 200 / 300 / 500 m).
 
 If `vineyards.csv` doesn't exist yet, `make map` runs `make start` first.

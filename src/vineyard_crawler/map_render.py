@@ -1,8 +1,9 @@
 """Interactive map renderer using Bokeh.
 
 Reads a vineyard CSV, plots each vineyard as a coloured circle on a tile map,
-and emits a self-contained HTML file with browser-side sliders that re-bucket
-distances live without re-running Python.
+and emits a self-contained HTML file with browser-side controls — sliders to
+re-bucket distances and checkboxes to toggle each bucket's visibility — both
+running in pure JS without a Python kernel.
 """
 from __future__ import annotations
 
@@ -10,11 +11,11 @@ import csv
 import math
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
 
 from bokeh.layouts import column, row
 from bokeh.models import (
     Button,
+    CheckboxGroup,
     ColumnDataSource,
     CustomJS,
     Div,
@@ -39,6 +40,9 @@ BUCKET_COLORS: tuple[str, ...] = (
     "#fc8d59",  # far — orange
     "#d73027",  # very far — saturated red
 )
+
+_VISIBLE_ALPHA: float = 0.85
+_HIDDEN_ALPHA: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -93,11 +97,13 @@ def _build_source(points: list[_MapPoint]) -> ColumnDataSource:
     xs: list[float] = []
     ys: list[float] = []
     distances: list[int] = []
+    bucket_indices: list[int] = []
     for p in points:
         x, y = _project_to_web_mercator(p.lat, p.lon)
         xs.append(x)
         ys.append(y)
         distances.append(p.distance_m if p.distance_m is not None else SLIDER_MAX_M)
+        bucket_indices.append(_bucket_index(p.distance_m, DEFAULT_THRESHOLDS_M))
 
     return ColumnDataSource(
         data={
@@ -107,33 +113,50 @@ def _build_source(points: list[_MapPoint]) -> ColumnDataSource:
             "river": [p.nearest_river for p in points],
             "operator": [p.operator for p in points],
             "distance_m": distances,
-            "color": [
-                BUCKET_COLORS[_bucket_index(p.distance_m, DEFAULT_THRESHOLDS_M)]
-                for p in points
-            ],
+            "bucket": bucket_indices,
+            "color": [BUCKET_COLORS[b] for b in bucket_indices],
+            "alpha": [_VISIBLE_ALPHA] * len(points),
         }
     )
 
 
-def _slider_callback(
+def _update_callback(
     source: ColumnDataSource,
     sliders: list[Slider],
+    checkboxes: CheckboxGroup,
 ) -> CustomJS:
-    """Build the JS that re-colours every point when any slider moves."""
+    """Build the JS that recomputes bucket assignment, colour, and visibility.
+
+    Runs whenever any slider moves OR any visibility checkbox toggles. Keeps
+    the per-point bucket index in sync with the live thresholds so toggling
+    visibility uses the same bucketing as the colours show.
+    """
     return CustomJS(
-        args={"source": source, "sliders": sliders, "palette": list(BUCKET_COLORS)},
+        args={
+            "source": source,
+            "sliders": sliders,
+            "checkboxes": checkboxes,
+            "palette": list(BUCKET_COLORS),
+            "visible_alpha": _VISIBLE_ALPHA,
+            "hidden_alpha": _HIDDEN_ALPHA,
+        },
         code="""
         const data = source.data;
         const dists = data['distance_m'];
+        const buckets = data['bucket'];
         const colors = data['color'];
+        const alphas = data['alpha'];
         const t = sliders.map(s => s.value).sort((a, b) => a - b);
+        const active = new Set(checkboxes.active);
         for (let i = 0; i < dists.length; i++) {
             const d = dists[i];
-            let bucket = t.length;
+            let b = t.length;
             for (let j = 0; j < t.length; j++) {
-                if (d < t[j]) { bucket = j; break; }
+                if (d < t[j]) { b = j; break; }
             }
-            colors[i] = palette[bucket];
+            buckets[i] = b;
+            colors[i] = palette[b];
+            alphas[i] = active.has(b) ? visible_alpha : hidden_alpha;
         }
         source.change.emit();
         """,
@@ -154,22 +177,49 @@ def _build_sliders(thresholds: tuple[int, ...]) -> list[Slider]:
     ]
 
 
-def _legend_html() -> Div:
-    items = "".join(
-        f'<span style="display:inline-block;width:14px;height:14px;'
-        f'background:{c};margin-right:6px;vertical-align:middle;border:1px solid #888;"></span>'
-        f'<span style="margin-right:18px;">Bucket&nbsp;{i + 1}</span>'
-        for i, c in enumerate(BUCKET_COLORS)
+def _bucket_labels(thresholds: tuple[int, ...]) -> list[str]:
+    """Human-readable label for each bucket — '< 100 m', '100–200 m', '≥ 500 m'."""
+    labels: list[str] = [f"< {thresholds[0]} m"]
+    for lo, hi in zip(thresholds[:-1], thresholds[1:]):
+        labels.append(f"{lo}–{hi} m")
+    labels.append(f"≥ {thresholds[-1]} m")
+    return labels
+
+
+def _build_visibility_checkboxes() -> CheckboxGroup:
+    """All buckets visible by default."""
+    return CheckboxGroup(
+        labels=_bucket_labels(DEFAULT_THRESHOLDS_M),
+        active=list(range(len(BUCKET_COLORS))),
+        inline=True,
     )
+
+
+def _legend_html() -> Div:
     return Div(
-        text=f"""
+        text="""
         <div style="font-family:sans-serif;font-size:13px;">
-            <strong>Distance to nearest river</strong> — drag sliders to re-bucket.
-            <div style="margin-top:8px;">{items}</div>
+            <strong>Distance to nearest river</strong> —
+            tick / untick a bucket to hide it on the map; drag the sliders to re-bucket.
         </div>
         """,
         width=900,
     )
+
+
+def _checkbox_label_html() -> Div:
+    """Coloured swatches placed above the checkbox row so the colour-to-bucket
+    mapping is unmistakable.  Bokeh's CheckboxGroup labels are plain text only,
+    so we render the swatches in a separate Div aligned with the checkboxes.
+    """
+    items = "".join(
+        f'<span style="display:inline-block;width:14px;height:14px;'
+        f'background:{c};margin:0 6px 0 14px;vertical-align:middle;'
+        f'border:1px solid #888;"></span>'
+        f'<span style="font-family:sans-serif;font-size:12px;color:#555;">B{i + 1}</span>'
+        for i, c in enumerate(BUCKET_COLORS)
+    )
+    return Div(text=f'<div>{items}</div>', width=900)
 
 
 def _build_figure(source: ColumnDataSource) -> figure:
@@ -180,13 +230,15 @@ def _build_figure(source: ColumnDataSource) -> figure:
         height=700,
         tools="pan,wheel_zoom,box_zoom,reset,save",
         active_scroll="wheel_zoom",
+        match_aspect=True,
         title="Vineyards of Germany — coloured by distance to nearest river",
     )
     p.add_tile(xyz_providers.CartoDB.Positron)
+    # fill_alpha is now data-driven so unchecked buckets vanish.
     p.scatter(
         x="x", y="y", size=7,
         fill_color="color", line_color="#222", line_width=0.5,
-        fill_alpha=0.85,
+        fill_alpha="alpha", line_alpha="alpha",
         source=source,
     )
     p.add_tools(HoverTool(tooltips=[
@@ -206,21 +258,33 @@ def render(csv_path: Path, html_path: Path) -> int:
     points = _read_points(csv_path)
     source = _build_source(points)
     sliders = _build_sliders(DEFAULT_THRESHOLDS_M)
+    checkboxes = _build_visibility_checkboxes()
 
-    callback = _slider_callback(source, sliders)
+    callback = _update_callback(source, sliders, checkboxes)
     for s in sliders:
         s.js_on_change("value", callback)
+    checkboxes.js_on_change("active", callback)
 
     reset = Button(label="Reset thresholds", button_type="default", width=160)
     reset.js_on_click(CustomJS(
-        args={"sliders": sliders, "defaults": list(DEFAULT_THRESHOLDS_M)},
-        code="for (let i = 0; i < sliders.length; i++) sliders[i].value = defaults[i];",
+        args={
+            "sliders": sliders,
+            "checkboxes": checkboxes,
+            "default_thresholds": list(DEFAULT_THRESHOLDS_M),
+            "default_active": list(range(len(BUCKET_COLORS))),
+        },
+        code="""
+            for (let i = 0; i < sliders.length; i++) sliders[i].value = default_thresholds[i];
+            checkboxes.active = default_active;
+        """,
     ))
 
     layout = column(
         _legend_html(),
         _build_figure(source),
         row(*sliders),
+        _checkbox_label_html(),
+        checkboxes,
         reset,
     )
 

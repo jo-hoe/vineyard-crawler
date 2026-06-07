@@ -11,6 +11,7 @@ from vineyard_crawler.map_render import (
     DEFAULT_THRESHOLDS_M,
     SLIDER_MAX_M,
     _bucket_index,
+    _bucket_labels,
     _project_to_web_mercator,
     render,
 )
@@ -78,3 +79,34 @@ def test_render_emits_self_contained_html(tmp_path: Path) -> None:
     assert "Rhein" in text
     # Bokeh embeds its JS inline so no <script src=> hops out to the network
     assert "bokeh" in text.lower()
+
+
+def test_bucket_labels_match_thresholds() -> None:
+    labels = _bucket_labels((100, 200, 300, 500))
+    assert labels == [
+        "< 100 m",
+        "100–200 m",
+        "200–300 m",
+        "300–500 m",
+        "≥ 500 m",
+    ]
+
+
+def test_bucket_labels_count_matches_palette() -> None:
+    labels = _bucket_labels(DEFAULT_THRESHOLDS_M)
+    assert len(labels) == len(BUCKET_COLORS)
+
+
+def test_render_includes_visibility_checkboxes(tmp_path: Path) -> None:
+    csv_path = tmp_path / "vineyards.csv"
+    _write_csv(csv_path, [
+        {"name": "X", "latitude": "49.7", "longitude": "8.1",
+         "nearest_river": "Rhein", "river_distance_m": "120"},
+    ])
+    html_path = tmp_path / "map.html"
+    render(csv_path, html_path)
+    text = html_path.read_text(encoding="utf-8")
+    # Bokeh serialises labels with HTML-escaped '<' and JSON-unicode-escaped en-dash.
+    assert "&lt; 100 m" in text
+    assert "100\\u2013200 m" in text
+    assert "&ge; 500 m" in text or "≥ 500 m" in text or "\\u2265 500 m" in text

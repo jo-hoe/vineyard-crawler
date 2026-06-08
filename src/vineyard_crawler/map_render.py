@@ -97,12 +97,17 @@ def _build_source(points: list[_MapPoint]) -> ColumnDataSource:
     xs: list[float] = []
     ys: list[float] = []
     distances: list[int] = []
+    distance_labels: list[str] = []
     bucket_indices: list[int] = []
     for p in points:
         x, y = _project_to_web_mercator(p.lat, p.lon)
         xs.append(x)
         ys.append(y)
+        # SLIDER_MAX_M is used as an internal sentinel for unenriched points so
+        # the JS bucketing treats them as "very far".  distance_label keeps the
+        # human-readable display separate so the tooltip never shows the sentinel.
         distances.append(p.distance_m if p.distance_m is not None else SLIDER_MAX_M)
+        distance_labels.append(str(p.distance_m) if p.distance_m is not None else "n/a")
         bucket_indices.append(_bucket_index(p.distance_m, DEFAULT_THRESHOLDS_M))
 
     return ColumnDataSource(
@@ -113,6 +118,7 @@ def _build_source(points: list[_MapPoint]) -> ColumnDataSource:
             "river": [p.nearest_river for p in points],
             "operator": [p.operator for p in points],
             "distance_m": distances,
+            "distance_label": distance_labels,
             "bucket": bucket_indices,
             "color": [BUCKET_COLORS[b] for b in bucket_indices],
             "alpha": [_VISIBLE_ALPHA] * len(points),
@@ -244,7 +250,7 @@ def _build_figure(source: ColumnDataSource) -> figure:
     p.add_tools(HoverTool(tooltips=[
         ("Name", "@name"),
         ("River", "@river"),
-        ("Distance (m)", "@distance_m"),
+        ("Distance (m)", "@distance_label"),
         ("Operator", "@operator"),
     ]))
     return p
